@@ -102,7 +102,10 @@ const userLogin = asyncHandler(async (req, res) => {
         .cookie("refreshToken", refreshToken, Option)
         .cookie("accessToken", accessToken, Option)
         .json(
-            new ApiResponse(200, LoggedinUser, "user logged in successfully")
+            new ApiResponse(200, {
+                user: LoggedinUser,
+                token: accessToken
+            }, "user logged in successfully")
         )
 })
 
@@ -199,6 +202,18 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200), {}, "your password has been  changed")
 })
 
+const getCurrentUser = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id).select("-password -refreshToken");
+    
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, user, "Current user fetched successfully")
+    );
+});
+
 export {
     userRegister,
     createDefaultadmin,
@@ -206,6 +221,5 @@ export {
     userLogout,
     refreshAccessToken,
     changeCurrentPassword,
-    
-
+    getCurrentUser
 }

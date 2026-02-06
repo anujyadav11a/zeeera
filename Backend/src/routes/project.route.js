@@ -15,12 +15,14 @@ import {
     removeMemberFromProject,
     getProjectDetails,
     changeMemberRole,
+    getUserProjects,
 } from "../controllers/project.controller.js";
 
 
 const Projectrouter= Router();
 
 Projectrouter.route("/create-Project").post(verifyToken,createProject)
+Projectrouter.route("/user-projects").get(verifyToken, getUserProjects)
 Projectrouter.route("/get-ProjectDetails/:projectId").get(verifyToken, validateProjectId, getProjectDetails);
 Projectrouter.route("/add-Member").post(verifyToken, projectCreatorAuthorization, addMemberTOproject)
 Projectrouter.route("/list-Members/:projectId").get(verifyToken,projectMemberAuthorization,ListALLMembersofProject)

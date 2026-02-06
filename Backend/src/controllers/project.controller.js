@@ -440,11 +440,63 @@ export const changeMemberRole = asyncHandler(async (req, res) => {
     });
 });
 
+const getUserProjects = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
+
+    try {
+        // Get all projects where user is a member
+        const userProjects = await ProjectMember.aggregate([
+            {
+                $match: { 
+                    user: new mongoose.Types.ObjectId(userId),
+                    isActive: true 
+                }
+            },
+            {
+                $lookup: {
+                    from: 'projects',
+                    localField: 'project',
+                    foreignField: '_id',
+                    as: 'projectDetails'
+                }
+            },
+            {
+                $unwind: '$projectDetails'
+            },
+            {
+                $project: {
+                    _id: '$projectDetails._id',
+                    name: '$projectDetails.name',
+                    description: '$projectDetails.description',
+                    createdBy: '$projectDetails.createdBy',
+                    projectHead: '$projectDetails.projectHead',
+                    memberCount: '$projectDetails.memberCount',
+                    startDate: '$projectDetails.startDate',
+                    endDate: '$projectDetails.endDate',
+                    createdAt: '$projectDetails.createdAt',
+                    updatedAt: '$projectDetails.updatedAt',
+                    userRole: '$role'
+                }
+            },
+            {
+                $sort: { createdAt: -1 }
+            }
+        ]);
+
+        return res.status(200).json(
+            new ApiResponse(200, userProjects, "User projects fetched successfully")
+        );
+    } catch (error) {
+        throw new ApiError(500, "Failed to fetch user projects");
+    }
+});
+
 export {
     createProject,
     addMemberTOproject,
     ListALLMembersofProject,
     removeMemberFromProject,
-    getProjectDetails
+    getProjectDetails,
+    getUserProjects
 }
 
