@@ -29,50 +29,44 @@ const createDefaultadmin = async () => {
             const hasPassword = await bcrypt.hash("admin@123", 10)
 
             await User.create({
-                username: "admin12",
                 password: hasPassword,
                 email: "admin@gmail.com",
                 name: "Admin",
                 role: "admin"
-
             })
         }
     } catch (error) {
         throw new ApiError(500, "internal server error")
     }
-
 }
 
 const userRegister = asyncHandler(async (req, res) => {
-    const { username, name, email, password } = req.body
+    const { name, email, password } = req.body
 
-    if ([username, name, email, password].some((field) => field?.trim() === "")) {
+    if ([name, email, password].some((field) => field?.trim() === "")) {
         throw new ApiError(400, "all fields are required")
     }
 
-    const userExist = await User.findOne({
-        $or: [{ username }, { email }]
-    })
+    const userExist = await User.findOne({ email })
     if (userExist) {
-        throw new ApiError(409, "user already exist with this email or username")
+        throw new ApiError(409, "user already exist with this email")
     }
 
     const user = await User.create({
-        
         name,
         email,
         password
     })
 
-    const crestedUser = await User.findById(user._id)
+    const createdUser = await User.findById(user._id)
         .select("-password")
 
-    if (!crestedUser) {
+    if (!createdUser) {
         throw new ApiError(500, "user registration failed, please try again")
     }
 
     return res.status(201)
-        .json(new ApiResponse(201, crestedUser, "user registered successfully"))
+        .json(new ApiResponse(201, createdUser, "user registered successfully"))
 })
 
 const userLogin = asyncHandler(async (req, res) => {
@@ -186,20 +180,20 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 })
 
 const changeCurrentPassword = asyncHandler(async (req, res) => {
-    const { oldpassword, newpassword, } = req.body
+    const { oldpassword, newpassword } = req.body
     const user = await User.findById(req.user._id)
 
-    const isPasswordCorrect = user.isPasswordCorrect(oldpassword)
+    const isPasswordCorrect = await user.comparePassword(oldpassword)
     if (!isPasswordCorrect) {
-        throw new ApiError(200, "invalid password")
+        throw new ApiError(400, "invalid password")
     }
 
     user.password = newpassword
-    user.save({ validateBeforeSave: false })
+    await user.save({ validateBeforeSave: false })
 
     return res
         .status(200)
-        .json(new ApiResponse(200), {}, "your password has been  changed")
+        .json(new ApiResponse(200, {}, "your password has been changed"))
 })
 
 const getCurrentUser = asyncHandler(async (req, res) => {

@@ -24,6 +24,21 @@ const createProject = asyncHandler(async (req, res) => {
         throw new ApiError(400, "project name is too long (max 200 characters)");
     }
 
+    // Generate project key from name (e.g., "My Project" -> "MYPR")
+    const generateProjectKey = (projectName) => {
+        return projectName
+            .toUpperCase()
+            .replace(/[^A-Z0-9\s]/g, '') // Remove special characters
+            .split(' ')
+            .filter(word => word.length > 0)
+            .map(word => word.substring(0, 2))
+            .join('')
+            .substring(0, 4) // Limit to 4 characters
+            .padEnd(4, 'X'); // Pad with X if less than 4 chars
+    };
+
+    const projectKey = generateProjectKey(trimmedName);
+
     // Parse and validate dates if provided
     let startDate;
     let endDate;
@@ -40,14 +55,20 @@ const createProject = asyncHandler(async (req, res) => {
     }
 
     // Check if project exists
-    const projectExist = await Project.findOne({ name: trimmedName });
+    const projectExist = await Project.findOne({ 
+        $or: [
+            { name: trimmedName },
+            { key: projectKey }
+        ]
+    });
     if (projectExist) {
-        throw new ApiError(409, "project already exists");
+        throw new ApiError(409, "project already exists with this name or key");
     }
 
     // Prepare project payload
     const projectPayload = {
         name: trimmedName,
+        key: projectKey,
         description: description || "",
         createdBy: req.user?._id,
         projectHead: req.user?.name

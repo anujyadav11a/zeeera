@@ -117,8 +117,8 @@ const IssueSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["todo", "in_progress", "in_review", "done", "closed"],
-    default: "todo"
+    enum: ["open", "in-progress", "resolved", "closed"],
+    default: "open"
   },
   reporter: {
     type: mongoose.Schema.Types.ObjectId,
@@ -151,6 +151,18 @@ const IssueSchema = new mongoose.Schema({
     type: [CommentSchema],
     default: []
   },
+
+  attachments: [{
+    filename: String,
+    originalname: String,
+    path: String,
+    size: Number,
+    mimetype: String,
+    uploadedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
  
 
   

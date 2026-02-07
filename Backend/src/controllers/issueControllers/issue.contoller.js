@@ -9,121 +9,123 @@ import { buildPopulation, applyPopulation } from "../../utils/populationBuilder.
 
 
 const createIssue = asyncHandler(async (req, res) => {
-    const { projectId } = req.params;
+    try {
+        const { projectId } = req.params;
+        
+        console.log('Creating issue for project:', projectId);
+        console.log('Request body:', req.body);
+        console.log('Files:', req.files);
+        console.log('User:', req.user);
 
-    const {
-        title,
-        description,
-        type,
-        priority,
+        const {
+            title,
+            description,
+            priority = 'medium',
+            status = 'open',
+            assignedTo,
+            assignee
+        } = req.body;
 
-        status,
-        assignee,
-        labels,
-        estimate,
-        dueDate,
-        parent
-    } = req.body;
+        // 🔹 Validate required fields
+        if (!title || !title.trim()) {
+            throw new ApiError(400, "Title is required");
+        }
 
-    // 🔹 Validate required fields
-    if (!title) {
-        return res.status(400).json({ message: "Title is required" });
+        if (!description || !description.trim()) {
+            throw new ApiError(400, "Description is required");
+        }
+
+        // 🔹 Check project exists
+        const project = await Project.findById(projectId);
+        if (!project) {
+            throw new ApiError(404, "Project not found");
+        }
+
+        console.log('Project found:', project);
+
+        // Check if project has a key, if not generate one
+        if (!project.key) {
+            const generateProjectKey = (projectName) => {
+                return projectName
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9\s]/g, '')
+                    .split(' ')
+                    .filter(word => word.length > 0)
+                    .map(word => word.substring(0, 2))
+                    .join('')
+                    .substring(0, 4)
+                    .padEnd(4, 'X');
+            };
+            
+            project.key = generateProjectKey(project.name);
+            await project.save();
+            console.log('Generated project key:', project.key);
+        }
+
+        // 🔹 Generate Issue Key (e.g. PROJ-12)
+        const issueCount = await Issue.countDocuments({ project: projectId });
+        const issueKey = `${project.key}-${issueCount + 1}`;
+
+        console.log('Generated issue key:', issueKey);
+
+        const PRIORITY_MAP = {
+            high: 1,
+            medium: 2,
+            low: 3
+        };
+
+        const computedPriorityOrder = PRIORITY_MAP[priority] || 2;
+
+        // 🔹 Create issue
+        const issueData = {
+            project: projectId,
+            key: issueKey,
+            title: title.trim(),
+            description: description.trim(),
+            type: 'task',
+            priority,
+            priorityOrder: computedPriorityOrder,
+            status,
+            reporter: req.user._id
+        };
+
+        // Add assignee if provided (handle both assignedTo and assignee field names)
+        const assigneeId = assignedTo || assignee;
+        if (assigneeId && assigneeId.trim()) {
+            issueData.assignee = assigneeId;
+        }
+
+        // Handle file attachments
+        if (req.files && req.files.length > 0) {
+            issueData.attachments = req.files.map(file => ({
+                filename: file.filename,
+                originalname: file.originalname,
+                path: file.path,
+                size: file.size,
+                mimetype: file.mimetype
+            }));
+        }
+
+        console.log('Issue data to create:', issueData);
+
+        const issue = await Issue.create(issueData);
+        console.log('Issue created:', issue);
+
+        // Populate the created issue with user details
+        const populatedIssue = await Issue.findById(issue._id)
+            .populate('reporter', 'name email')
+            .populate('assignee', 'name email')
+            .populate('project', 'name key');
+
+        console.log('Populated issue:', populatedIssue);
+
+        res.status(201).json(
+            new ApiResponse(201, populatedIssue, "Issue created successfully")
+        );
+    } catch (error) {
+        console.error('Error creating issue:', error);
+        throw error;
     }
-
-    // 🔹 Check project exists
-    const project = await Project.findById(projectId);
-    if (!project) {
-        return res.status(404).json({ message: "Project not found" });
-    }
-    // Estimate validation
-    if (estimate !== undefined) {
-        if (typeof estimate !== "number" || estimate < 0) {
-            return res.status(400).json({ message: "Estimate must be a non-negative number" });
-        }
-    }
-
-    // Due date validation
-    if (dueDate !== undefined) {
-        const due = new Date(dueDate);
-        if (isNaN(due.getTime())) {
-            return res.status(400).json({ message: "Invalid due date" });
-        }
-
-        if (due < new Date()) {
-            return res.status(400).json({ message: "Due date cannot be in the past" });
-        }
-    }
-
-
-
-
-    // 4️⃣ Parent validation (ONLY if parent is provided)
-    if (parent) {
-        const parentIssue = await Issue.findById(parent);
-
-        if (!parentIssue) {
-            return res.status(404).json({ message: "Parent issue not found" });
-        }
-
-        if (parentIssue.project.toString() !== projectId) {
-            return res.status(400).json({
-                message: "Parent issue must belong to the same project"
-            });
-        }
-
-        if (parentIssue.type === "subtask") {
-            return res.status(400).json({
-                message: "Subtask cannot be a parent issue"
-            });
-        }
-
-        if (type !== "subtask") {
-            return res.status(400).json({
-                message: "Only subtasks can have a parent"
-            });
-        }
-    }
-
-
-
-    // 🔹 Generate Issue Key (e.g. PROJ-12)
-    const issueCount = await Issue.countDocuments({ project: projectId });
-    const issueKey = `${project.key}-${issueCount + 1}`;
-
-    const PRIORITY_MAP = {
-        urgent: 1,
-        high: 2,
-        medium: 3,
-        low: 4
-    };
-
-    const computedPriorityOrder = PRIORITY_MAP[priority || 'medium'] || 3;
-
-    // 🔹 Create issue (create a properly formatted history entry)
-    const issue = await Issue.create({
-        project: projectId,
-        key: issueKey,
-        title,
-        description,
-        type,
-        priority,
-        priorityOrder: computedPriorityOrder,
-        status,
-        reporter: req.user._id,
-        assignee,
-        labels,
-        estimate,
-        dueDate,
-        parent,
-       
-    });
-
-   
-   
-
-res.status(201).json(
-    new ApiResponse(201, issue, "Issue created successfully")
-);
 })
 const DeleteIssue = asyncHandler(async (req, res) => {
     const { issueId } = req.params;

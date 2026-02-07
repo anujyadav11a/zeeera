@@ -6,6 +6,13 @@ const projectSchema = new mongoose.Schema({
     required: [true, "Project name is required"],
     trim: true
   },
+  key: {
+    type: String,
+    required: true,
+    unique: true,
+    uppercase: true,
+    trim: true
+  },
   description: {
     type: String,
     trim: true
