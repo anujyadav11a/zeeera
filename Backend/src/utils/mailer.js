@@ -1,26 +1,30 @@
 import nodemailer from 'nodemailer';
 
+// Use Gmail service since it works better
 const transporter = nodemailer.createTransport({
-  service: 'gmail', // Use Gmail service
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT) || 587,
-  secure: process.env.SMTP_SECURE === 'true', // false for 587, true for 465
+  service: 'gmail',
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
   tls: {
-    rejectUnauthorized: false // Allow self-signed certificates
+    rejectUnauthorized: false
   }
 });
 
-// Test the connection
-transporter.verify((error, success) => {
-  if (error) {
-    console.error('SMTP connection error:', error);
-  } else {
-    console.log('SMTP server is ready to send emails');
+// Test the connection on startup
+const testEmailConnection = async () => {
+  try {
+    console.log('Testing Gmail service connection...');
+    await transporter.verify();
+    console.log('✅ Gmail service is ready to send emails');
+  } catch (error) {
+    console.error('❌ Gmail service connection error:', error.message);
+    console.log('💡 Please check your Gmail credentials');
   }
-});
+};
+
+// Test connection when module loads
+testEmailConnection();
 
 export { transporter };
