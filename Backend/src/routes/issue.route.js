@@ -7,32 +7,64 @@ import { projectMemberAuthorization } from "../middleware/projectMemberauth.midd
 import { projectLeaderAuthorization } from "../middleware/projectLeaderAuthorization.middleware.js";
 import { issueExistAuthorization } from "../middleware/issueHandlingmiddlewares/issueExistAuthorization.middleware.js";
 import { authorizeIssueAccess } from "../middleware/issueHandlingmiddlewares/issueAcess.middleware.js";
-import {assigneeAuthorization} from "../middleware/issueHandlingmiddlewares/assigneeAuthorization.middleware.js";
-import{
-     
+import { assigneeAuthorization } from "../middleware/issueHandlingmiddlewares/assigneeAuthorization.middleware.js";
+import { generalRateLimiter } from "../middleware/rateLimiter.middleware.js";
+import { sanitizeInputMiddleware } from "../middleware/validation.middleware.js";
+import {
     DeleteIssue,
     GetIssue,
     UpdateIssue,
-    
-    
 } from "../controllers/issueControllers/issue.contoller.js";
  
 import {
    assignIssueTOUser, reassignIssue, unassignIssue
 } from "../controllers/issueControllers/issueAssign.controller.js";
 
-
 const issueRouter = Router();
 
+// Apply security middleware to all routes
+issueRouter.use(sanitizeInputMiddleware);
+issueRouter.use(generalRateLimiter);
+issueRouter.use(verifyToken); // All issue routes require authentication
 
+// Issue CRUD operations
+issueRouter.route("/get-Issue/:issueId").get(
+    issueExistAuthorization, 
+    projectMemberAuthorization, 
+    GetIssue
+);
 
+issueRouter.route("/update-Issue/:issueId").put(
+    issueExistAuthorization,
+    authorizeIssueAccess, 
+    UpdateIssue
+);
 
-// Get/Update/Delete issue - derives projectId from issueId
-issueRouter.route("/get-Issue/:issueId").get(verifyToken,issueExistAuthorization,projectMemberAuthorization, GetIssue);
-issueRouter.route("/update-Issue/:issueId").put(verifyToken, issueExistAuthorization,authorizeIssueAccess, UpdateIssue);
-issueRouter.route("/delete-Issue/:issueId").delete(verifyToken, issueExistAuthorization,projectLeaderAuthorization, DeleteIssue);
-issueRouter.route("/assign-issue/:issueId").post(verifyToken, issueExistAuthorization, assigneeAuthorization, projectLeaderAuthorization, assignIssueTOUser);
-issueRouter.route("/reassign-issue/:issueId").post(verifyToken, issueExistAuthorization, assigneeAuthorization, projectLeaderAuthorization, reassignIssue);
-issueRouter.route("/unassign-issue/:issueId").post(verifyToken, issueExistAuthorization, projectLeaderAuthorization, unassignIssue);
+issueRouter.route("/delete-Issue/:issueId").delete(
+    issueExistAuthorization,
+    projectLeaderAuthorization, 
+    DeleteIssue
+);
 
-export {issueRouter}
+// Issue assignment operations (require project leader authorization)
+issueRouter.route("/assign-issue/:issueId").post(
+    issueExistAuthorization, 
+    assigneeAuthorization, 
+    projectLeaderAuthorization, 
+    assignIssueTOUser
+);
+
+issueRouter.route("/reassign-issue/:issueId").post(
+    issueExistAuthorization, 
+    assigneeAuthorization, 
+    projectLeaderAuthorization, 
+    reassignIssue
+);
+
+issueRouter.route("/unassign-issue/:issueId").post(
+    issueExistAuthorization, 
+    projectLeaderAuthorization, 
+    unassignIssue
+);
+
+export { issueRouter };

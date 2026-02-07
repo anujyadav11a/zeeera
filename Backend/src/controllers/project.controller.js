@@ -14,14 +14,25 @@ import {
 } from "./Email/email.contrller.js";
 
 const createProject = asyncHandler(async (req, res) => {
-
     const { name, description, startdate, enddate } = req.body;
+    
+    // Enhanced validation
     if (!name || !name.trim()) {
         throw new ApiError(400, "project name is required");
     }
+    
     const trimmedName = name.trim();
     if (trimmedName.length > 200) {
         throw new ApiError(400, "project name is too long (max 200 characters)");
+    }
+    
+    if (trimmedName.length < 3) {
+        throw new ApiError(400, "project name must be at least 3 characters long");
+    }
+
+    // Validate description length if provided
+    if (description && description.length > 1000) {
+        throw new ApiError(400, "project description is too long (max 1000 characters)");
     }
 
     // Generate project key from name (e.g., "My Project" -> "MYPR")
@@ -128,15 +139,29 @@ const createProject = asyncHandler(async (req, res) => {
 const addMemberTOproject = asyncHandler(async (req, res) => {
     const { ProjectId, userId, role } = req.body
 
-    // validate required fields (supports non-string ids as well)
+    // Enhanced validation for required fields
     if ([ProjectId, userId, role].some(field => !field || (typeof field === 'string' && field.trim() === ''))) {
-        throw new ApiError(400, "all fields are required")
+        throw new ApiError(400, "all fields are required (ProjectId, userId, role)")
     }
 
-    // validate role against ProjectMember enum
+    // Validate ObjectId formats
+    if (!mongoose.Types.ObjectId.isValid(ProjectId)) {
+        throw new ApiError(400, "invalid ProjectId format");
+    }
+    
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+        throw new ApiError(400, "invalid userId format");
+    }
+
+    // Validate role against ProjectMember enum
     const allowedRolesForMember = MEMBER_ROLES;
     if (!allowedRolesForMember.includes(role)) {
-        throw new ApiError(400, "invalid role")
+        throw new ApiError(400, `invalid role. Allowed roles: ${allowedRolesForMember.join(', ')}`);
+    }
+
+    // Prevent self-assignment in some cases (optional business logic)
+    if (userId === req.user._id.toString()) {
+        throw new ApiError(400, "cannot add yourself as a member through this endpoint");
     }
 
     const memberexist = await ProjectMember.findOne({
@@ -453,10 +478,20 @@ const getProjectDetails = asyncHandler(async (req, res) => {
 const changeMemberRole = asyncHandler(async (req, res) => {
     const { memberId } = req.params;
     const { role } = req.body;
-    // Validate against the ProjectMember schema enum: leader, developer, member, viewer
-    const allowedRoles = ["leader", "developer", "member", "viewer"];
-    if (!role || typeof role !== 'string' || !allowedRoles.includes(role)) {
-        return res.status(400).json({ message: "Invalid role. Allowed roles: leader, developer, member, viewer" });
+    
+    // Enhanced validation
+    if (!memberId || !mongoose.Types.ObjectId.isValid(memberId)) {
+        throw new ApiError(400, "valid memberId is required");
+    }
+    
+    if (!role || typeof role !== 'string' || role.trim() === '') {
+        throw new ApiError(400, "role is required");
+    }
+    
+    // Validate against the ProjectMember schema enum
+    const allowedRoles = MEMBER_ROLES;
+    if (!allowedRoles.includes(role.trim())) {
+        throw new ApiError(400, `invalid role. Allowed roles: ${allowedRoles.join(', ')}`);
     }
 
     // If middleware attached targetMember (projectLeaderAuthorization when called with memberId), reuse it

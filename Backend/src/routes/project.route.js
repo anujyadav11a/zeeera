@@ -5,6 +5,8 @@ import { validateProjectId } from "../middleware/validateProjectId.middleware.js
 import { projectCreatorAuthorization } from "../middleware/projectCreatorAuthorization.middleware.js";
 import { projectMemberAuthorization } from "../middleware/projectMemberauth.middleware.js";
 import { projectLeaderAuthorization } from "../middleware/projectLeaderAuthorization.middleware.js";
+import { generalRateLimiter } from "../middleware/rateLimiter.middleware.js";
+import { sanitizeInputMiddleware, validatePagination } from "../middleware/validation.middleware.js";
 import { createIssue } from "../controllers/issueControllers/issue.contoller.js";
 import { ListIssues  } from "../controllers/issueControllers/issue.contoller.js";
 import upload from "../middleware/multer.middleware.js";
@@ -19,18 +21,28 @@ import {
     getUserProjects,
 } from "../controllers/project.controller.js";
 
+const Projectrouter = Router();
 
-const Projectrouter= Router();
+// Apply input sanitization and rate limiting to all routes
+Projectrouter.use(sanitizeInputMiddleware);
+Projectrouter.use(generalRateLimiter);
 
-Projectrouter.route("/create-Project").post(verifyToken,createProject)
-Projectrouter.route("/user-projects").get(verifyToken, getUserProjects)
-Projectrouter.route("/get-ProjectDetails/:projectId").get(verifyToken, validateProjectId, getProjectDetails);
-Projectrouter.route("/add-Member").post(verifyToken, projectCreatorAuthorization, addMemberTOproject)
-Projectrouter.route("/list-Members/:projectId").get(verifyToken,projectMemberAuthorization,ListALLMembersofProject)
-Projectrouter.route("/remove-Member").post(verifyToken, projectCreatorAuthorization, removeMemberFromProject)
+// All project routes require authentication
+Projectrouter.use(verifyToken);
 
-// change member role: only project leader (for that project) or global admin
-Projectrouter.route("/change-member-role/:memberId").post(verifyToken, projectLeaderAuthorization, changeMemberRole)
-Projectrouter.route("/:projectId/issues").post(verifyToken, validateProjectId, projectMemberAuthorization, upload.array('attachments'), createIssue);
-Projectrouter.route("/:projectId/list-Issues").get(verifyToken,  validateProjectId,projectMemberAuthorization, ListIssues);
-export {Projectrouter}
+// Project management routes
+Projectrouter.route("/create-Project").post(createProject);
+Projectrouter.route("/user-projects").get(validatePagination, getUserProjects);
+Projectrouter.route("/get-ProjectDetails/:projectId").get(validateProjectId, getProjectDetails);
+
+// Member management routes (require project creator/leader authorization)
+Projectrouter.route("/add-Member").post(projectCreatorAuthorization, addMemberTOproject);
+Projectrouter.route("/list-Members/:projectId").get(projectMemberAuthorization, validatePagination, ListALLMembersofProject);
+Projectrouter.route("/remove-Member").post(projectCreatorAuthorization, removeMemberFromProject);
+Projectrouter.route("/change-member-role/:memberId").post(projectLeaderAuthorization, changeMemberRole);
+
+// Issue routes within projects
+Projectrouter.route("/:projectId/issues").post(validateProjectId, projectMemberAuthorization, upload.array('attachments'), createIssue);
+Projectrouter.route("/:projectId/list-Issues").get(validateProjectId, projectMemberAuthorization, validatePagination, ListIssues);
+
+export { Projectrouter };
