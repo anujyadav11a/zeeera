@@ -3,19 +3,47 @@ import { useParams, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { Users, FileText, Plus, Settings } from 'lucide-react';
 import { fetchProjectById } from '../../store/slices/projectSlice';
+import { fetchProjectIssues } from '../../store/slices/issueSlice';
 import { Layout } from '../../components/layout';
 import { Button, Card } from '../../components/ui';
 
 const ProjectOverview = () => {
   const { projectId } = useParams();
   const { currentProject, isLoading } = useSelector((state) => state.project);
+  const { issues } = useSelector((state) => state.issue);
   const dispatch = useDispatch();
 
   useEffect(() => {
     if (projectId) {
       dispatch(fetchProjectById(projectId));
+      dispatch(fetchProjectIssues(projectId));
     }
   }, [dispatch, projectId]);
+
+  // Calculate issue statistics
+  const totalIssues = issues.length;
+  const openIssues = issues.filter(issue => issue.status === 'open').length;
+  const completedIssues = issues.filter(issue => issue.status === 'resolved' || issue.status === 'closed').length;
+  const recentIssues = issues.slice(0, 5); // Get 5 most recent issues
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'high': return 'text-red-600 bg-red-100';
+      case 'medium': return 'text-yellow-600 bg-yellow-100';
+      case 'low': return 'text-green-600 bg-green-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'open': return 'text-blue-600 bg-blue-100';
+      case 'in-progress': return 'text-yellow-600 bg-yellow-100';
+      case 'resolved': return 'text-green-600 bg-green-100';
+      case 'closed': return 'text-gray-600 bg-gray-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
 
   if (isLoading) {
     return (
@@ -70,7 +98,7 @@ const ProjectOverview = () => {
                 <FileText className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">0</p>
+                <p className="text-2xl font-bold text-gray-900">{totalIssues}</p>
                 <p className="text-sm text-gray-600">Total Issues</p>
               </div>
             </Card.Content>
@@ -82,7 +110,7 @@ const ProjectOverview = () => {
                 <FileText className="w-6 h-6 text-yellow-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">0</p>
+                <p className="text-2xl font-bold text-gray-900">{openIssues}</p>
                 <p className="text-sm text-gray-600">Open Issues</p>
               </div>
             </Card.Content>
@@ -94,7 +122,7 @@ const ProjectOverview = () => {
                 <FileText className="w-6 h-6 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">0</p>
+                <p className="text-2xl font-bold text-gray-900">{completedIssues}</p>
                 <p className="text-sm text-gray-600">Completed</p>
               </div>
             </Card.Content>
@@ -126,9 +154,40 @@ const ProjectOverview = () => {
               </div>
             </Card.Header>
             <Card.Content>
-              <div className="text-center py-8 text-gray-500">
-                No issues yet. Create your first issue to get started.
-              </div>
+              {recentIssues.length > 0 ? (
+                <div className="space-y-3">
+                  {recentIssues.map((issue) => (
+                    <Link 
+                      key={issue._id} 
+                      to={`/project/${projectId}/issues/${issue._id}`}
+                      className="block hover:bg-gray-50 p-3 rounded-lg transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h4 className="text-sm font-medium text-gray-900 truncate">
+                            {issue.title}
+                          </h4>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {issue.key} • {new Date(issue.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2 ml-4">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(issue.priority)}`}>
+                            {issue.priority}
+                          </span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(issue.status)}`}>
+                            {issue.status}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No issues yet. Create your first issue to get started.
+                </div>
+              )}
             </Card.Content>
           </Card>
 

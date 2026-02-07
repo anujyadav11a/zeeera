@@ -7,7 +7,8 @@ export const fetchProjectIssues = createAsyncThunk(
   async (projectId, { rejectWithValue }) => {
     try {
       const response = await api.get(`/project/${projectId}/list-Issues`);
-      return response.data.data;
+      // The backend returns { data: { data: issues, pagination: {...} } }
+      return response.data.data.data || response.data.data || [];
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to fetch issues');
     }
