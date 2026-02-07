@@ -208,6 +208,14 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     );
 });
 
+const getAllUsers = asyncHandler(async (req, res) => {
+    const users = await User.find({}).select('_id name email role').lean();
+    
+    return res.status(200).json(
+        new ApiResponse(200, users, "Users fetched successfully")
+    );
+});
+
 export {
     userRegister,
     createDefaultadmin,
@@ -215,5 +223,6 @@ export {
     userLogout,
     refreshAccessToken,
     changeCurrentPassword,
-    getCurrentUser
+    getCurrentUser,
+    getAllUsers
 }

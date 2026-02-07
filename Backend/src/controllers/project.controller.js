@@ -395,32 +395,63 @@ const getProjectDetails = asyncHandler(async (req, res) => {
         throw new ApiError(400, "projectId is required")
     }
 
+    console.log('Fetching project details for:', projectId);
+
     const ProjectExist = await Project.findById(projectId)
     if (!ProjectExist) {
-        throw new ApiError(404, "project does not exits")
-
+        throw new ApiError(404, "project does not exist")
     }
 
+    // Get project details
     const Projectdetails = await Project.findById(projectId)
 
     if (!Projectdetails) {
         throw new ApiError(401, "failed to get Project details")
     }
 
+    console.log('Project found:', Projectdetails.name);
+
+    // Get project members with user details
+    const projectMembers = await ProjectMember.find({ 
+        project: projectId, 
+        isActive: true 
+    })
+    .populate('user', 'name email role')
+    .select('role joinedAt user')
+    .lean();
+
+    console.log('Found project members:', projectMembers.length);
+
+    // Format members data
+    const members = projectMembers.map(member => ({
+        _id: member.user._id,
+        name: member.user.name,
+        email: member.user.email,
+        role: member.role,
+        joinedAt: member.joinedAt
+    }));
+
+    console.log('Formatted members:', members);
+
+    // Add members to project details
+    const projectWithMembers = {
+        ...Projectdetails.toObject(),
+        members: members
+    };
+
+    console.log('Returning project with members count:', projectWithMembers.members.length);
+
     return res.status(200)
         .json(
             new ApiResponse(
                 200,
-                Projectdetails,
+                projectWithMembers,
                 "details fetch successfully"
             )
         )
-
-
-
 })
 
-export const changeMemberRole = asyncHandler(async (req, res) => {
+const changeMemberRole = asyncHandler(async (req, res) => {
     const { memberId } = req.params;
     const { role } = req.body;
     // Validate against the ProjectMember schema enum: leader, developer, member, viewer
@@ -518,6 +549,7 @@ export {
     ListALLMembersofProject,
     removeMemberFromProject,
     getProjectDetails,
-    getUserProjects
+    getUserProjects,
+    changeMemberRole
 }
 

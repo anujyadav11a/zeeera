@@ -1,17 +1,33 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { Users, FileText, Plus, Settings } from 'lucide-react';
 import { fetchProjectById } from '../../store/slices/projectSlice';
 import { fetchProjectIssues } from '../../store/slices/issueSlice';
+import { addProjectMember } from '../../store/slices/projectSlice';
 import { Layout } from '../../components/layout';
-import { Button, Card } from '../../components/ui';
+import { Button, Card, Modal, Input } from '../../components/ui';
+import { useForm } from 'react-hook-form';
+import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 const ProjectOverview = () => {
   const { projectId } = useParams();
   const { currentProject, isLoading } = useSelector((state) => state.project);
   const { issues } = useSelector((state) => state.issue);
   const dispatch = useDispatch();
+  
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
+  const [isAddingMember, setIsAddingMember] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors }
+  } = useForm();
 
   useEffect(() => {
     if (projectId) {
@@ -19,6 +35,53 @@ const ProjectOverview = () => {
       dispatch(fetchProjectIssues(projectId));
     }
   }, [dispatch, projectId]);
+
+  // Debug: Log the current project data
+  useEffect(() => {
+    console.log('Current project data:', currentProject);
+    console.log('Members:', currentProject?.members);
+  }, [currentProject]);
+
+  const fetchAvailableUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const response = await api.get('/User/all');
+      setAvailableUsers(response.data.data || []);
+    } catch (error) {
+      toast.error('Failed to fetch users');
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleOpenAddMemberModal = () => {
+    setIsAddMemberModalOpen(true);
+    fetchAvailableUsers();
+  };
+
+  const handleAddMember = async (data) => {
+    setIsAddingMember(true);
+    try {
+      await dispatch(addProjectMember({
+        projectId,
+        memberData: {
+          userId: data.userId,
+          role: data.role
+        }
+      })).unwrap();
+      
+      toast.success('Member added successfully!');
+      setIsAddMemberModalOpen(false);
+      reset();
+      
+      // Refresh project data to show new member
+      dispatch(fetchProjectById(projectId));
+    } catch (error) {
+      toast.error(error.message || 'Failed to add member');
+    } finally {
+      setIsAddingMember(false);
+    }
+  };
 
   // Calculate issue statistics
   const totalIssues = issues.length;
@@ -195,7 +258,11 @@ const ProjectOverview = () => {
             <Card.Header>
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Team Members</h3>
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleOpenAddMemberModal}
+                >
                   <Plus size={16} className="mr-1" />
                   Add Member
                 </Button>
@@ -226,6 +293,74 @@ const ProjectOverview = () => {
             </Card.Content>
           </Card>
         </div>
+
+        {/* Add Member Modal */}
+        <Modal
+          isOpen={isAddMemberModalOpen}
+          onClose={() => setIsAddMemberModalOpen(false)}
+          title="Add Team Member"
+        >
+          <form onSubmit={handleSubmit(handleAddMember)} className="space-y-4">
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Select User
+              </label>
+              {loadingUsers ? (
+                <div className="text-sm text-gray-500">Loading users...</div>
+              ) : (
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  {...register('userId', { required: 'Please select a user' })}
+                >
+                  <option value="">Select a user</option>
+                  {availableUsers.map((user) => (
+                    <option key={user._id} value={user._id}>
+                      {user.name} ({user.email})
+                    </option>
+                  ))}
+                </select>
+              )}
+              {errors.userId && (
+                <p className="text-sm text-red-600">{errors.userId.message}</p>
+              )}
+            </div>
+            
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Role
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                {...register('role', { required: 'Role is required' })}
+              >
+                <option value="">Select role</option>
+                <option value="viewer">Viewer</option>
+                <option value="member">Member</option>
+                <option value="developer">Developer</option>
+                <option value="leader">Leader</option>
+              </select>
+              {errors.role && (
+                <p className="text-sm text-red-600">{errors.role.message}</p>
+              )}
+            </div>
+            
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAddMemberModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isAddingMember}
+              >
+                {isAddingMember ? 'Adding...' : 'Add Member'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
       </div>
     </Layout>
   );

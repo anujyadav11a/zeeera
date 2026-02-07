@@ -5,7 +5,8 @@ import {
     userLogout,
     changeCurrentPassword,
     refreshAccessToken,
-    getCurrentUser
+    getCurrentUser,
+    getAllUsers
 } from "../controllers/user.controller.js"
 import { verifyToken } from "../middleware/auth.middleware.js";
 
@@ -13,6 +14,7 @@ const userRouter = Router();
 userRouter.route("/register").post(userRegister)
 userRouter.route("/login").post(userLogin)
 userRouter.route("/current").get(verifyToken, getCurrentUser)
+userRouter.route("/all").get(verifyToken, getAllUsers)
 userRouter.route("/Logout").post(verifyToken, userLogout)
 userRouter.route("/changePassword").post(verifyToken,changeCurrentPassword)
 
