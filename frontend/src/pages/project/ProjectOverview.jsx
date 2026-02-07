@@ -6,7 +6,7 @@ import { fetchProjectById } from '../../store/slices/projectSlice';
 import { fetchProjectIssues } from '../../store/slices/issueSlice';
 import { addProjectMember } from '../../store/slices/projectSlice';
 import { Layout } from '../../components/layout';
-import { Button, Card, Modal, Input } from '../../components/ui';
+import { Button, Card, Modal } from '../../components/ui';
 import { useForm } from 'react-hook-form';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -35,12 +35,6 @@ const ProjectOverview = () => {
       dispatch(fetchProjectIssues(projectId));
     }
   }, [dispatch, projectId]);
-
-  // Debug: Log the current project data
-  useEffect(() => {
-    console.log('Current project data:', currentProject);
-    console.log('Members:', currentProject?.members);
-  }, [currentProject]);
 
   const fetchAvailableUsers = async () => {
     setLoadingUsers(true);
@@ -73,9 +67,6 @@ const ProjectOverview = () => {
       toast.success('Member added successfully!');
       setIsAddMemberModalOpen(false);
       reset();
-      
-      // Refresh project data to show new member
-      dispatch(fetchProjectById(projectId));
     } catch (error) {
       toast.error(error.message || 'Failed to add member');
     } finally {

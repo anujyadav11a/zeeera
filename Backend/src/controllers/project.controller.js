@@ -180,8 +180,8 @@ const addMemberTOproject = asyncHandler(async (req, res) => {
         throw new ApiError(500, "failed to add member to project")
     }
     
-    // Populate user data for notification
-    const memberWithUserData = await ProjectMember.findById(addMember._id).populate('user');
+    // Populate user data for notification and response
+    const memberWithUserData = await ProjectMember.findById(addMember._id).populate('user', 'name email role');
     if (memberWithUserData && memberWithUserData.user) {
         await notifyuserOnprojectAssignment(
             { email: memberWithUserData.user.email, name: memberWithUserData.user.name, _id: memberWithUserData.user._id },
@@ -189,12 +189,21 @@ const addMemberTOproject = asyncHandler(async (req, res) => {
         )
     }
 
+    // Format the response to match the expected structure
+    const memberResponse = {
+        _id: memberWithUserData.user._id,
+        name: memberWithUserData.user.name,
+        email: memberWithUserData.user.email,
+        role: memberWithUserData.role,
+        joinedAt: memberWithUserData.joinedAt
+    };
+
     
     return res.status(200)
         .json(
             new ApiResponse(
                 200,
-                addMember,
+                memberResponse,
                 "new member added to project successfully"
 
             )
@@ -395,8 +404,6 @@ const getProjectDetails = asyncHandler(async (req, res) => {
         throw new ApiError(400, "projectId is required")
     }
 
-    console.log('Fetching project details for:', projectId);
-
     const ProjectExist = await Project.findById(projectId)
     if (!ProjectExist) {
         throw new ApiError(404, "project does not exist")
@@ -409,8 +416,6 @@ const getProjectDetails = asyncHandler(async (req, res) => {
         throw new ApiError(401, "failed to get Project details")
     }
 
-    console.log('Project found:', Projectdetails.name);
-
     // Get project members with user details
     const projectMembers = await ProjectMember.find({ 
         project: projectId, 
@@ -419,8 +424,6 @@ const getProjectDetails = asyncHandler(async (req, res) => {
     .populate('user', 'name email role')
     .select('role joinedAt user')
     .lean();
-
-    console.log('Found project members:', projectMembers.length);
 
     // Format members data
     const members = projectMembers.map(member => ({
@@ -431,15 +434,11 @@ const getProjectDetails = asyncHandler(async (req, res) => {
         joinedAt: member.joinedAt
     }));
 
-    console.log('Formatted members:', members);
-
     // Add members to project details
     const projectWithMembers = {
         ...Projectdetails.toObject(),
         members: members
     };
-
-    console.log('Returning project with members count:', projectWithMembers.members.length);
 
     return res.status(200)
         .json(

@@ -162,9 +162,12 @@ const projectSlice = createSlice({
       })
       // Add project member
       .addCase(addProjectMember.fulfilled, (state, action) => {
+        // The action.payload now contains the formatted member data
         if (state.currentProject) {
           state.currentProject.members = state.currentProject.members || [];
           state.currentProject.members.push(action.payload);
+          // Also update the member count
+          state.currentProject.memberCount = (state.currentProject.memberCount || 0) + 1;
         }
       });
   },
