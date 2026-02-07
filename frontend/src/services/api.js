@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1',
   timeout: 10000,
+  withCredentials:true
 });
 
 // Request interceptor to add auth token
@@ -42,6 +43,11 @@ api.interceptors.response.use(
           break;
         case 404:
           toast.error('Resource not found.');
+          break;
+        case 400:
+          // Bad Request - validation errors
+          const badRequestMessage = response.data?.message || 'Invalid request data';
+          toast.error(badRequestMessage);
           break;
         case 422:
           // Validation errors

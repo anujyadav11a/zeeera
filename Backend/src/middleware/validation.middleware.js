@@ -50,9 +50,26 @@ const validateRequiredFields = (data, requiredFields) => {
 
 // Input sanitization middleware
 const sanitizeInputMiddleware = (req, res, next) => {
-    req.body = sanitizeInput(req.body);
-    req.query = sanitizeInput(req.query);
-    req.params = sanitizeInput(req.params);
+    // Sanitize body
+    if (req.body && typeof req.body === 'object') {
+        req.body = sanitizeInput(req.body);
+    }
+    
+    // Sanitize params
+    if (req.params && typeof req.params === 'object') {
+        req.params = sanitizeInput(req.params);
+    }
+    
+    // For query, we need to create a new object since it's read-only
+    if (req.query && typeof req.query === 'object') {
+        const sanitizedQuery = sanitizeInput(req.query);
+        // Replace the query object properties
+        Object.keys(req.query).forEach(key => {
+            delete req.query[key];
+        });
+        Object.assign(req.query, sanitizedQuery);
+    }
+    
     next();
 };
 

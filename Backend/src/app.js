@@ -51,8 +51,8 @@ app.use("/api/v1/project", Projectrouter);
 import { issueRouter } from './routes/issue.route.js';
 app.use("/api/v1/issue", issueRouter);
 
-// 404 handler
-app.use('*', (req, res) => {
+// 404 handler for unmatched routes
+app.use((req, res) => {
     res.status(404).json({
         success: false,
         message: 'Route not found'

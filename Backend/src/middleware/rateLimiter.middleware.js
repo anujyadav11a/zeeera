@@ -47,8 +47,8 @@ const rateLimiter = (maxRequests = MAX_REQUESTS, windowMs = WINDOW_SIZE) => {
     };
 };
 
-// Stricter rate limiting for auth endpoints
-const authRateLimiter = rateLimiter(10, 15 * 60 * 1000); // 10 requests per 15 minutes
-const generalRateLimiter = rateLimiter(100, 15 * 60 * 1000); // 100 requests per 15 minutes
+// Development-friendly rate limiting
+const authRateLimiter = rateLimiter(50, 5 * 60 * 1000); // 50 requests per 5 minutes for auth
+const generalRateLimiter = rateLimiter(200, 5 * 60 * 1000); // 200 requests per 5 minutes for general
 
 export { rateLimiter, authRateLimiter, generalRateLimiter };
