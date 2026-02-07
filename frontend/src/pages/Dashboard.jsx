@@ -78,7 +78,9 @@ const Dashboard = () => {
                 <Clock className="w-6 h-6 text-orange-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">0</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {projects.reduce((acc, project) => acc + (project.issueCount || 0), 0)}
+                </p>
                 <p className="text-sm text-gray-600">Active Issues</p>
               </div>
             </Card.Content>
@@ -118,7 +120,7 @@ const Dashboard = () => {
                       </p>
                       <div className="flex items-center justify-between text-sm text-gray-500">
                         <span>{project.members?.length || 0} members</span>
-                        <span>0 issues</span>
+                        <span>{project.issueCount || 0} issues</span>
                       </div>
                     </Card.Content>
                   </Card>

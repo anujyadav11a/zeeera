@@ -40,8 +40,16 @@ const ProjectOverview = () => {
     setLoadingUsers(true);
     try {
       const response = await api.get('/User/all');
-      setAvailableUsers(response.data.data || []);
+      // Backend returns { users: [...], pagination: {...} }
+      const allUsers = response.data.data.users || [];
+      
+      // Filter out users who are already members of the current project
+      const currentMemberIds = currentProject.members?.map(member => member._id) || [];
+      const availableUsersFiltered = allUsers.filter(user => !currentMemberIds.includes(user._id));
+      
+      setAvailableUsers(availableUsersFiltered);
     } catch (error) {
+      console.error('Error fetching users:', error);
       toast.error('Failed to fetch users');
     } finally {
       setLoadingUsers(false);
@@ -298,6 +306,10 @@ const ProjectOverview = () => {
               </label>
               {loadingUsers ? (
                 <div className="text-sm text-gray-500">Loading users...</div>
+              ) : availableUsers.length === 0 ? (
+                <div className="text-sm text-gray-500 p-3 bg-gray-50 rounded-md">
+                  No users available to add. All users are already members of this project.
+                </div>
               ) : (
                 <select
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -345,7 +357,7 @@ const ProjectOverview = () => {
               </Button>
               <Button
                 type="submit"
-                disabled={isAddingMember}
+                disabled={isAddingMember || availableUsers.length === 0}
               >
                 {isAddingMember ? 'Adding...' : 'Add Member'}
               </Button>

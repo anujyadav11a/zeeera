@@ -530,7 +530,7 @@ const getUserProjects = asyncHandler(async (req, res) => {
     const userId = req.user._id;
 
     try {
-        // Get all projects where user is a member
+        // Get all projects where user is a member with members and issue counts
         const userProjects = await ProjectMember.aggregate([
             {
                 $match: { 
@@ -549,6 +549,69 @@ const getUserProjects = asyncHandler(async (req, res) => {
             {
                 $unwind: '$projectDetails'
             },
+            // Get project members
+            {
+                $lookup: {
+                    from: 'projectmembers',
+                    let: { projectId: '$projectDetails._id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$project', '$$projectId'] },
+                                        { $eq: ['$isActive', true] }
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            $lookup: {
+                                from: 'users',
+                                localField: 'user',
+                                foreignField: '_id',
+                                as: 'userDetails'
+                            }
+                        },
+                        {
+                            $unwind: '$userDetails'
+                        },
+                        {
+                            $project: {
+                                _id: '$userDetails._id',
+                                name: '$userDetails.name',
+                                email: '$userDetails.email',
+                                role: '$role',
+                                joinedAt: '$joinedAt'
+                            }
+                        }
+                    ],
+                    as: 'members'
+                }
+            },
+            // Get issue count
+            {
+                $lookup: {
+                    from: 'issues',
+                    let: { projectId: '$projectDetails._id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$project', '$$projectId'] },
+                                        { $eq: ['$isDeleted', false] }
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            $count: 'total'
+                        }
+                    ],
+                    as: 'issueCount'
+                }
+            },
             {
                 $project: {
                     _id: '$projectDetails._id',
@@ -561,7 +624,9 @@ const getUserProjects = asyncHandler(async (req, res) => {
                     endDate: '$projectDetails.endDate',
                     createdAt: '$projectDetails.createdAt',
                     updatedAt: '$projectDetails.updatedAt',
-                    userRole: '$role'
+                    userRole: '$role',
+                    members: '$members',
+                    issueCount: { $ifNull: [{ $arrayElemAt: ['$issueCount.total', 0] }, 0] }
                 }
             },
             {
@@ -573,6 +638,7 @@ const getUserProjects = asyncHandler(async (req, res) => {
             new ApiResponse(200, userProjects, "User projects fetched successfully")
         );
     } catch (error) {
+        console.error('Error fetching user projects:', error);
         throw new ApiError(500, "Failed to fetch user projects");
     }
 });
